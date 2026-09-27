@@ -60,6 +60,22 @@ exports.update = async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 };
 
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ where: { email } });
+    if (!user) return res.status(404).json({ success: false, message: 'Email tidak terdaftar.' });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ success: false, message: 'Password salah.' });
+
+    const userJSON = user.toJSON();
+    delete userJSON.password;
+
+    res.json({ success: true, message: 'Login berhasil.', data: userJSON });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+};
+
 exports.delete = async (req, res) => {
   try {
     const data = await User.findByPk(req.params.id);

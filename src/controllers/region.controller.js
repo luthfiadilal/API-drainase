@@ -3,20 +3,27 @@ const { Region } = db;
 
 exports.getAllRegions = async (req, res) => {
   try {
-    const regions = await Region.findAll({
-      attributes: [
-        'id', 
-        'name',
-        [db.sequelize.fn('ST_AsGeoJSON', db.sequelize.col('geom')), 'geojson']
-      ]
-    });
+    const [results] = await db.sequelize.query(`
+      SELECT 
+        region_id AS id, 
+        region_name AS name, 
+        risk_color, 
+        risk_status,
+        ST_AsGeoJSON(geom) AS geojson
+      FROM region_risk_view
+    `);
 
-    const features = regions.map(r => {
-      const geojsonStr = r.getDataValue('geojson');
+    const features = results.map(r => {
+      const geojsonStr = r.geojson;
       return {
         type: "Feature",
-        properties: { id: r.id, name: r.name },
-        geometry: geojsonStr ? JSON.parse(geojsonStr) : null
+        properties: { 
+          id: r.id, 
+          name: r.name,
+          risk_color: r.risk_color,
+          risk_status: r.risk_status
+        },
+        geometry: geojsonStr ? (typeof geojsonStr === 'string' ? JSON.parse(geojsonStr) : geojsonStr) : null
       };
     }).filter(f => f.geometry !== null);
 
