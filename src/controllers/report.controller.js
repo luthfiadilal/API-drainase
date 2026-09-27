@@ -1,0 +1,122 @@
+const db = require('../models');
+const { DrainageReport, DrainageReportItem, Drainage, IndicatorOption, Indicator, ClassificationThreshold, sequelize } = db;
+const { Op } = require('sequelize');
+
+exports.createReport = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { drainage_id, reporter_name, reporter_contact, notes, options } = req.body;
+    
+    // options should be an array of option IDs
+    if (!options || !Array.isArray(options) || options.length === 0) {
+      return res.status(400).json({ success: false, message: 'Harap pilih indikator.' });
+    }
+
+    // Fetch the selected options
+    const selectedOptions = await IndicatorOption.findAll({
+      where: { id: options },
+      include: [{ model: Indicator }],
+      transaction: t
+    });
+
+    if (selectedOptions.length === 0) {
+      return res.status(400).json({ success: false, message: 'Opsi indikator tidak valid.' });
+    }
+
+    // Calculate total score
+    let totalScore = 0;
+    const summaryList = [];
+
+    selectedOptions.forEach(opt => {
+      totalScore += parseFloat(opt.calculated_weight);
+      summaryList.push({
+        indicator_id: opt.indicator_id,
+        indicator_name: opt.Indicator ? opt.Indicator.name : '',
+        score: opt.score,
+        description: opt.description,
+        calculated_weight: opt.calculated_weight
+      });
+    });
+
+    // Find classification status based on total score
+    const thresholds = await ClassificationThreshold.findAll({ transaction: t });
+    let statusResult = 'Clear';
+    let pinColor = '#28A745';
+    
+    for (let th of thresholds) {
+      const min = parseFloat(th.min_score);
+      const max = parseFloat(th.max_score);
+      if (totalScore >= min && totalScore <= max) {
+        statusResult = th.category;
+        pinColor = th.color_hex;
+        break;
+      }
+    }
+
+    // Create Report
+    const reportNumber = `RPT-${Date.now()}`;
+    const report = await DrainageReport.create({
+      report_number: reportNumber,
+      drainage_id,
+      reporter_name: reporter_name || 'Citizen',
+      reporter_contact: reporter_contact || '',
+      total_score: totalScore,
+      status_result: statusResult,
+      notes: notes || ''
+    }, { transaction: t });
+
+    // Create Report Items
+    const reportItems = selectedOptions.map(opt => ({
+      report_id: report.id,
+      indicator_id: opt.indicator_id,
+      selected_score: opt.score,
+      indicator_weight_snapshot: opt.Indicator ? opt.Indicator.weight : 0,
+      calculated_value: opt.calculated_weight,
+      notes: ''
+    }));
+
+    await DrainageReportItem.bulkCreate(reportItems, { transaction: t });
+
+    // Update Drainage Master Data
+    await Drainage.update({
+      last_report_id: report.id,
+      current_total_score: totalScore,
+      current_condition_status: statusResult,
+      current_pin_color: pinColor,
+      last_assessed_at: new Date(),
+      current_indicators_summary: summaryList
+    }, {
+      where: { id: drainage_id },
+      transaction: t
+    });
+
+    await t.commit();
+    res.status(201).json({ success: true, message: 'Laporan berhasil disubmit.', data: report });
+  } catch (err) {
+    await t.rollback();
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.getAllReports = async (req, res) => {
+  try {
+    const { status } = req.query;
+    let whereCondition = {};
+    if (status) {
+      whereCondition.status_result = status;
+    }
+    
+    const reports = await DrainageReport.findAll({
+      where: whereCondition,
+      include: [
+        { model: Drainage, attributes: ['id', 'name', 'code', 'address'] },
+        { model: DrainageReportItem, include: [Indicator] }
+      ],
+      order: [['report_date', 'DESC']]
+    });
+    
+    res.json({ success: true, data: reports });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

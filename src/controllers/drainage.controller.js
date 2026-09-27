@@ -27,7 +27,26 @@ exports.getById = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    const data = await Drainage.create(req.body);
+    const payload = { ...req.body };
+    
+    // Auto-generate code like DRN-001, DRN-002
+    const lastDrainage = await Drainage.findOne({
+      order: [['id', 'DESC']]
+    });
+    
+    let nextNumber = 1;
+    if (lastDrainage && lastDrainage.code && lastDrainage.code.startsWith('DRN-')) {
+      const parts = lastDrainage.code.split('-');
+      if (parts.length === 2 && !isNaN(parts[1])) {
+        nextNumber = parseInt(parts[1], 10) + 1;
+      } else {
+        nextNumber = (lastDrainage.id || 0) + 1;
+      }
+    }
+    
+    payload.code = `DRN-${nextNumber.toString().padStart(3, '0')}`;
+    
+    const data = await Drainage.create(payload);
     res.status(201).json({ success: true, data });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 };

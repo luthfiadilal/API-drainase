@@ -17,4 +17,7 @@ router.use('/indicator-options', indicatorOptionRoutes);
 const regionRoutes = require('./region.routes');
 router.use('/regions', regionRoutes);
 
+const reportRoutes = require('./report.routes');
+router.use('/drainage-reports', reportRoutes);
+
 module.exports = router;
