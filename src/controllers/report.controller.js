@@ -1,12 +1,21 @@
 const db = require('../models');
-const { DrainageReport, DrainageReportItem, Drainage, IndicatorOption, Indicator, ClassificationThreshold, sequelize } = db;
+const { DrainageReport, DrainageReportItem, Drainage, IndicatorOption, Indicator, Aspect, ClassificationThreshold, DrainageReportImage, sequelize } = db;
 const { Op } = require('sequelize');
 
 exports.createReport = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { drainage_id, reporter_name, reporter_contact, notes, options } = req.body;
+    let { drainage_id, reporter_name, reporter_contact, notes, options } = req.body;
     
+    // Parse options if it was sent as a string (multipart/form-data)
+    if (typeof options === 'string') {
+      try {
+        options = JSON.parse(options);
+      } catch (e) {
+        options = options.split(',').map(item => parseInt(item.trim()));
+      }
+    }
+
     // options should be an array of option IDs
     if (!options || !Array.isArray(options) || options.length === 0) {
       return res.status(400).json({ success: false, message: 'Harap pilih indikator.' });
@@ -37,6 +46,9 @@ exports.createReport = async (req, res) => {
         calculated_weight: opt.calculated_weight
       });
     });
+
+    // Bulatkan hingga 4 angka desimal untuk menghindari isu floating-point Javascript (e.g. 0.9999999999)
+    totalScore = parseFloat(totalScore.toFixed(4));
 
     // Find classification status based on total score
     const thresholds = await ClassificationThreshold.findAll({ transaction: t });
@@ -77,6 +89,18 @@ exports.createReport = async (req, res) => {
 
     await DrainageReportItem.bulkCreate(reportItems, { transaction: t });
 
+    // Create Report Images if any
+    if (req.files && req.files.length > 0) {
+      const reportImages = req.files.map(file => ({
+        report_id: report.id,
+        image_url: `/uploads/${file.filename}`,
+        caption: notes ? notes.substring(0, 255) : ''
+      }));
+      if (DrainageReportImage) {
+        await DrainageReportImage.bulkCreate(reportImages, { transaction: t });
+      }
+    }
+
     // Update Drainage Master Data
     await Drainage.update({
       last_report_id: report.id,
@@ -110,7 +134,16 @@ exports.getAllReports = async (req, res) => {
       where: whereCondition,
       include: [
         { model: Drainage, attributes: ['id', 'name', 'code', 'address'] },
-        { model: DrainageReportItem, include: [Indicator] }
+        { 
+          model: DrainageReportItem, 
+          include: [
+            { 
+              model: Indicator,
+              include: [Aspect, IndicatorOption]
+            }
+          ] 
+        },
+        { model: DrainageReportImage }
       ],
       order: [['report_date', 'DESC']]
     });

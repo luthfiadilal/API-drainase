@@ -8,6 +8,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+
 // Root Endpoint
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to Drainase Backend API' });
