@@ -20,4 +20,7 @@ router.use('/regions', regionRoutes);
 const reportRoutes = require('./report.routes');
 router.use('/drainage-reports', reportRoutes);
 
+const actionRoutes = require('./action.routes');
+router.use('/actions', actionRoutes);
+
 module.exports = router;
