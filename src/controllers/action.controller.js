@@ -51,16 +51,7 @@ exports.createAction = async (req, res) => {
       status: 'completed'
     }, { transaction: t });
 
-    // Create Action Images
-    if (req.files && req.files.length > 0) {
-      const actionImages = req.files.map(file => ({
-        action_id: action.id,
-        image_type: 'after',
-        image_url: `/uploads/${file.filename}`,
-        caption: action_title
-      }));
-      await DrainageActionImage.bulkCreate(actionImages, { transaction: t });
-    }
+    // Images will be saved later after newReport is created
 
     // --- Create New Report (to update score) ---
     const selectedOptions = await IndicatorOption.findAll({
@@ -130,6 +121,27 @@ exports.createAction = async (req, res) => {
       where: { id: drainage_id },
       transaction: t
     });
+
+    // Create Images for both Action and the New Report
+    if (req.files && req.files.length > 0) {
+      const actionImages = req.files.map(file => ({
+        action_id: action.id,
+        image_type: 'after',
+        image_url: `/uploads/${file.filename}`,
+        caption: action_title
+      }));
+      await DrainageActionImage.bulkCreate(actionImages, { transaction: t });
+
+      const { DrainageReportImage } = db;
+      if (DrainageReportImage) {
+        const reportImages = req.files.map(file => ({
+          report_id: newReport.id,
+          image_url: `/uploads/${file.filename}`,
+          caption: `Perbaikan: ${action_title}`
+        }));
+        await DrainageReportImage.bulkCreate(reportImages, { transaction: t });
+      }
+    }
 
     await t.commit();
     res.status(201).json({ success: true, message: 'Perbaikan berhasil dicatat dan skor diperbarui.', data: action });

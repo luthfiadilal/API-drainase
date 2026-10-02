@@ -23,4 +23,7 @@ router.use('/drainage-reports', reportRoutes);
 const actionRoutes = require('./action.routes');
 router.use('/actions', actionRoutes);
 
+const commentRoutes = require('./comment.routes');
+router.use('/comments', commentRoutes);
+
 module.exports = router;

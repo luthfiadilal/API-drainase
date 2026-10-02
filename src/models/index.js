@@ -58,6 +58,15 @@ db.DrainageReportItem.belongsTo(db.Indicator, { foreignKey: 'indicator_id' });
 db.DrainageReportImage.belongsTo(db.DrainageReport, { foreignKey: 'report_id' });
 db.DrainageReport.hasMany(db.DrainageReportImage, { foreignKey: 'report_id' });
 
+db.DrainageReportComment.belongsTo(db.DrainageReport, { foreignKey: 'report_id' });
+db.DrainageReport.hasMany(db.DrainageReportComment, { foreignKey: 'report_id', as: 'Comments' });
+
+db.DrainageReportComment.belongsTo(db.User, { foreignKey: 'user_id' });
+db.User.hasMany(db.DrainageReportComment, { foreignKey: 'user_id' });
+
+db.DrainageReportComment.hasMany(db.DrainageReportComment, { foreignKey: 'parent_id', as: 'Replies' });
+db.DrainageReportComment.belongsTo(db.DrainageReportComment, { foreignKey: 'parent_id', as: 'Parent' });
+
 db.DrainageAction.belongsTo(db.DrainageReport, { foreignKey: 'report_id' });
 db.DrainageAction.belongsTo(db.Drainage, { foreignKey: 'drainage_id' });
 db.DrainageAction.belongsTo(db.User, { foreignKey: 'officer_user_id', as: 'Officer' });
