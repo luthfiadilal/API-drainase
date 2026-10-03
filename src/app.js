@@ -9,7 +9,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const path = require('path');
-app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+const fs = require('fs');
+const uploadDir = process.env.UPLOAD_DIR || path.join(__dirname, '../public/uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadDir));
 
 // Root Endpoint
 app.get('/', (req, res) => {
