@@ -6,6 +6,7 @@ router.get('/', controller.getAll);
 router.get('/:id', controller.getById);
 router.post('/', controller.create);
 router.post('/login', controller.login);
+router.post('/forgot-password', controller.forgotPassword);
 router.put('/:id', controller.update);
 router.delete('/:id', controller.delete);
 

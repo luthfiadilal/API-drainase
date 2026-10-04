@@ -76,6 +76,30 @@ exports.login = async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 };
 
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email, name, new_password } = req.body;
+    
+    if (!email || !name || !new_password) {
+      return res.status(400).json({ success: false, message: 'Email, Nama Pengguna, dan Password Baru harus diisi.' });
+    }
+
+    const user = await User.findOne({ where: { email, name } });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Data tidak cocok. Pastikan Nama Pengguna dan Email benar.' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(new_password, salt);
+
+    await user.update({ password: hashedPassword });
+
+    res.json({ success: true, message: 'Password berhasil diubah. Silakan login kembali.' });
+  } catch (err) { 
+    res.status(500).json({ success: false, message: err.message }); 
+  }
+};
+
 exports.delete = async (req, res) => {
   try {
     const data = await User.findByPk(req.params.id);
