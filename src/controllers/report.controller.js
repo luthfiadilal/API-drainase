@@ -116,22 +116,32 @@ exports.createReport = async (req, res) => {
 
     await t.commit();
     
-    // Emit danger socket event
-    if (statusResult === 'Danger') {
-      try {
-        const { getIO } = require('../socket');
-        const io = getIO();
-        // Fetch fresh drainage data
-        const updatedDrainage = await Drainage.findByPk(drainage_id);
+    // Emit socket events
+    try {
+      const { getIO } = require('../socket');
+      const io = getIO();
+      const updatedDrainage = await Drainage.findByPk(drainage_id);
+      
+      // Emit new report to all users (citizens & admins)
+      io.emit('new_report', {
+        message: `Ada laporan baru di ${updatedDrainage ? updatedDrainage.name : 'Drainase'}`,
+        drainageId: drainage_id,
+        drainageName: updatedDrainage ? updatedDrainage.name : 'Drainase',
+        statusResult,
+        reportId: report.id
+      });
+
+      // Emit specific danger report if applicable
+      if (statusResult === 'Danger') {
         io.emit('danger_report', {
           message: `Laporan DANGER baru di ${updatedDrainage ? updatedDrainage.name : 'Drainase'}!`,
           drainageId: drainage_id,
           drainageName: updatedDrainage ? updatedDrainage.name : 'Drainase',
           reportId: report.id
         });
-      } catch (err) {
-        console.error('Socket emit error:', err);
       }
+    } catch (err) {
+      console.error('Socket emit error:', err);
     }
 
     res.status(201).json({ success: true, message: 'Laporan berhasil disubmit.', data: report });
