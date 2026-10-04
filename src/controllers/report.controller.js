@@ -128,6 +128,8 @@ exports.createReport = async (req, res) => {
         drainageId: drainage_id,
         drainageName: updatedDrainage ? updatedDrainage.name : 'Drainase',
         statusResult,
+        pinColor,
+        totalScore,
         reportId: report.id
       });
 
@@ -137,6 +139,9 @@ exports.createReport = async (req, res) => {
           message: `Laporan DANGER baru di ${updatedDrainage ? updatedDrainage.name : 'Drainase'}!`,
           drainageId: drainage_id,
           drainageName: updatedDrainage ? updatedDrainage.name : 'Drainase',
+          statusResult,
+          pinColor,
+          totalScore,
           reportId: report.id
         });
       }
