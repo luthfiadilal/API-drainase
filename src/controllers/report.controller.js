@@ -132,7 +132,7 @@ exports.createReport = async (req, res) => {
       });
 
       // Emit specific danger report if applicable
-      if (statusResult === 'Danger') {
+      if (statusResult === 'Danger' || statusResult === 'Bahaya' || statusResult === 'Waspada' || statusResult?.toLowerCase() === 'danger') {
         io.emit('danger_report', {
           message: `Laporan DANGER baru di ${updatedDrainage ? updatedDrainage.name : 'Drainase'}!`,
           drainageId: drainage_id,
