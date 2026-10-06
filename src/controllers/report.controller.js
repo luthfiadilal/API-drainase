@@ -187,3 +187,86 @@ exports.getAllReports = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+exports.updateVerificationStatus = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+    const { verification_status, user_id } = req.body;
+    
+    const report = await DrainageReport.findByPk(id, { transaction: t });
+    if (!report) return res.status(404).json({ success: false, message: 'Laporan tidak ditemukan' });
+    
+    report.verification_status = verification_status;
+    if (user_id) report.verified_by_user_id = user_id;
+    report.verified_at = new Date();
+    await report.save({ transaction: t });
+    
+    // Jika ditolak (rejected), kita perlu mengembalikan status drainase ke kondisi laporan sebelumnya (rollback)
+    if (verification_status === 'rejected') {
+      const latestValidReport = await DrainageReport.findOne({
+        where: {
+          drainage_id: report.drainage_id,
+          verification_status: { [Op.notIn]: ['rejected'] },
+          id: { [Op.ne]: report.id } // exclude current report
+        },
+        order: [['report_date', 'DESC']],
+        transaction: t
+      });
+      
+      const drainage = await Drainage.findByPk(report.drainage_id, { transaction: t });
+      
+      if (latestValidReport) {
+        // Need to rebuild summary list for latestValidReport
+        const items = await db.DrainageReportItem.findAll({
+          where: { report_id: latestValidReport.id },
+          include: [{ model: Indicator }],
+          transaction: t
+        });
+        
+        const summaryList = items.map(item => ({
+          indicator_id: item.indicator_id,
+          indicator_name: item.Indicator ? item.Indicator.name : '',
+          score: item.selected_score,
+          calculated_weight: item.calculated_value
+        }));
+        
+        const thresholds = await ClassificationThreshold.findAll({ transaction: t });
+        let pinColor = '#28A745';
+        for (let th of thresholds) {
+          if (latestValidReport.total_score >= parseFloat(th.min_score) && latestValidReport.total_score <= parseFloat(th.max_score)) {
+            pinColor = th.color_hex;
+            break;
+          }
+        }
+        
+        if (drainage) {
+          await drainage.update({
+            last_report_id: latestValidReport.id,
+            current_total_score: latestValidReport.total_score,
+            current_condition_status: latestValidReport.status_result,
+            current_pin_color: pinColor,
+            current_indicators_summary: summaryList
+          }, { transaction: t });
+        }
+      } else {
+        // Jika tidak ada laporan valid sebelumnya, reset status drainase
+        if (drainage) {
+          await drainage.update({
+            last_report_id: null,
+            current_total_score: 0,
+            current_condition_status: 'Aman',
+            current_pin_color: '#28A745',
+            current_indicators_summary: []
+          }, { transaction: t });
+        }
+      }
+    }
+    
+    await t.commit();
+    res.json({ success: true, message: 'Status verifikasi berhasil diperbarui', data: report });
+  } catch (err) {
+    await t.rollback();
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

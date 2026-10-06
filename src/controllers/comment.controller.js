@@ -10,7 +10,7 @@ exports.getCommentsByReport = async (req, res) => {
       include: [
         {
           model: User,
-          attributes: ['id', 'name', 'avatar_url']
+          attributes: ['id', 'name', 'avatar_url', 'role']
         }
       ],
       order: [['created_at', 'ASC']]
@@ -50,7 +50,7 @@ exports.addComment = async (req, res) => {
       include: [
         {
           model: User,
-          attributes: ['id', 'name', 'avatar_url']
+          attributes: ['id', 'name', 'avatar_url', 'role']
         }
       ]
     });

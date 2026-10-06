@@ -24,5 +24,6 @@ const upload = multer({ storage: storage });
 
 router.post('/', upload.array('images', 5), controller.createReport);
 router.get('/', controller.getAllReports);
+router.put('/:id/verification', controller.updateVerificationStatus);
 
 module.exports = router;
